@@ -1,0 +1,36 @@
+name: Windows-RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Download ngrok
+      run: |
+        Invoke-WebRequest -Uri https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip
+        .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+
+    - name: Start Tunnel
+      run: .\ngrok\ngrok.exe tcp 3389
+
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    - name: Set Password
+      run: net user runneradmin @rdp2025
+
+    - name: Display Credentials
+      run: |
+        $ip = (Invoke-RestMethod -Uri "https://api64.ipify.org?format=json").ip
+        Write-Output "==========================================="
+        Write-Output "🔐 IP & Port (ngrok):"
+        Get-Content ngrok\logs\ngrok.log | Select-String "tcp://.*" | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value }
+        Write-Output "👤 Username: runneradmin"
+        Write-Output "🔑 Password: @rdp2025"
+        Write-Output "==========================================="
